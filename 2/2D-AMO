@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PILOT LEDGER 2026</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root { --bg-color: #000000; --panel-color: #111111; --gold: #d4af37; --orange: #ff9500; --text-white: #ffffff; --border: #333333; --success: #00c853; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none; }
+        body { 
+            background-color: var(--bg-color); color: var(--text-white); 
+            font-family: 'Noto Sans Myanmar', sans-serif;
+            margin: 0; padding: 6px; display: flex; flex-direction: column; height: 100dvh; width: 100vw; overflow: hidden; 
+        }
+        .pilot-status { font-size: 10px; text-align: right; color: var(--success); margin-bottom: 2px; display: flex; justify-content: space-between; font-weight: bold; }
+        .master-screen { background: var(--panel-color); border: 1px solid var(--border); border-radius: 8px; padding: 10px; flex-shrink: 0; }
+        .headers { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; text-align: center; color: var(--gold); font-size: 12px; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 5px; }
+        .display-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; height: 40px; align-items: center; text-align: center; font-size: 20px; }
+        .list-box { height: 90px; overflow-y: auto; border-top: 1px dashed var(--border); padding-top: 5px; margin-top: 5px; }
+        .list-item { display: grid; grid-template-columns: 1fr 1.5fr 0.8fr 1fr; font-size: 13px; padding: 4px 0; color: #aaa; text-align: center; border-bottom: 1px solid #222; }
+        .total-row { display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 5px; color: var(--gold); font-size: 16px; font-weight: bold; }
+        .keypad-wrapper { flex-grow: 1; margin-top: 5px; min-height: 0; }
+        .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; height: 100%; }
+        .btn { border: none; border-radius: 4px; font-size: 18px; background: #222; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-family: 'Noto Sans Myanmar', sans-serif; }
+        .btn:active { background: #444; }
+        .logic-btn { color: var(--orange); font-size: 14px; }
+        .action-btn { background: var(--gold); color: #000; font-weight: 900; }
+        .nav-row { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 5px; height: 50px; margin-top: 5px; flex-shrink: 0; }
+        .modal { position: fixed; inset: 0; background: #000; z-index: 999; display: none; flex-direction: column; padding: 10px; overflow-y: auto; }
+        .modal.active { display: flex; }
+        .ledger-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-top: 10px; padding-bottom: 20px; }
+        .ledger-item { background: #111; border: 1px solid #333; color: #888; font-size: 11px; padding: 8px 0; text-align: center; }
+        .ledger-item.highlight { background: var(--gold); color: #000; font-weight: bold; }
+        #qr-reader { width: 100% !important; border-radius: 10px; overflow: hidden; margin-top: 20px; }
+        
+        /* ပုံထဲကအတိုင်း ဘောင်ချာ ပုံစံ */
+        #receipt-capture { 
+            background: #fff; 
+            color: #000; 
+            width: 300px; 
+            margin: 10px auto; 
+            padding: 15px; 
+            border-radius: 5px;
+            font-family: 'Noto Sans Myanmar', sans-serif;
+        }
+        .receipt-header {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #000;
+            text-align: center;
+        }
+        .receipt-date {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .receipt-divider {
+            border-top: 1px solid #000;
+            margin: 15px 0;
+        }
+        .receipt-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        .item-number {
+            font-weight: bold;
+            width: 60px;
+        }
+        .item-logic {
+            color: #666;
+            font-size: 14px;
+            flex-grow: 1;
+            padding-left: 10px;
+        }
+        .item-amount {
+            font-weight: bold;
+            text-align: right;
+            min-width: 80px;
+        }
+        .receipt-total {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 2px solid #000;
+            text-align: center;
+            color: #000;
+        }
+        .receipt-footer {
+            font-size: 12px;
+            color: #666;
+            margin-top: 20px;
+            font-style: italic;
+            text-align: center;
+        }
+        
+        /* Button Styles */
+        .png-download-btn {
+            background: #4CAF50 !important;
+            color: white !important;
+            margin-top: 10px;
+        }
+        
+        .rawbt-btn {
+            background: #FF9800 !important;
+            color: white !important;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body onload="loadPilotData()">
+    <div class="pilot-status">
+        <span>စနစ်: အဆင်သင့်</span>
+        <span id="save-indicator">● Cloud Sync Ready</span>
+    </div>
+
+    <div class="master-screen">
+        <div class="headers"><div>ဂဏန်း</div><div>Logic</div><div>Price</div><div>Total</div></div>
+        <div class="display-row">
+            <div id="col-no"></div>
+            <div id="col-logic" style="color:var(--orange); font-size:14px;"></div>
+            <div id="col-price" style="color:var(--success)"></div>
+            <div id="col-res" style="color:#aaa; font-size:16px;"></div>
+        </div>
+        <div class="list-box"><div id="current-list"></div></div>
+        <div class="total-row"><span>စုစုပေါင်း</span><span id="total-amount">0 Ks</span></div>
+    </div>
+
+    <div class="keypad-wrapper">
+        <div class="keypad">
+            <button class="btn logic-btn" onclick="press('R')">R</button>
+            <button class="btn logic-btn" onclick="press('ခွေ')">ခွေ</button>
+            <button class="btn logic-btn" onclick="press('ပွင့်')">ပွင့်</button>
+            <button class="btn logic-btn" onclick="press('မြီး')">မြီး</button>
+            <button class="btn logic-btn" onclick="press('ပါဝါ')">ပါဝါ</button>
+            <button class="btn logic-btn" onclick="press('နက္ခ')">နက္ခ</button>
+            <button class="btn logic-btn" onclick="press('ညီကို')">ညီကို</button>
+            <button class="btn logic-btn" onclick="press('အပူး')">အပူး</button>
+            <button class="btn" onclick="press('7')">7</button>
+            <button class="btn" onclick="press('8')">8</button>
+            <button class="btn" onclick="press('9')">9</button>
+            <button class="btn logic-btn" onclick="press('ပတ်')">ပတ်</button>
+            <button class="btn" onclick="press('4')">4</button>
+            <button class="btn" onclick="press('5')">5</button>
+            <button class="btn" onclick="press('6')">6</button>
+            <button class="btn logic-btn" onclick="press('ဘရိတ်')">ဘရိတ်</button>
+            <button class="btn" onclick="press('1')">1</button>
+            <button class="btn" onclick="press('2')">2</button>
+            <button class="btn" onclick="press('3')">3</button>
+            <button class="btn" style="color:#ff4444" onclick="press('AC')">AC</button>
+            <button class="btn" onclick="press('0')">0</button>
+            <button class="btn" onclick="press('⌫')">⌫</button>
+            <button class="btn action-btn" style="grid-column: span 2;" onclick="press('Enter')">ထည့်မည်</button>
+        </div>
+    </div>
+
+    <div class="nav-row">
+        <button class="btn" style="border:1px solid var(--gold); font-size:13px;" onclick="showLedger()">စာရင်းချုပ်</button>
+        <button class="btn" style="background: #0091ea; font-size: 14px;" onclick="newVoucher()">အသစ်စမည်</button>
+        <button class="btn action-btn" style="font-size:13px;" onclick="showVoucher()">ဘောင်ချာ</button>
+    </div>
+
+    <!-- LEDGER MODAL -->
+    <div id="ledger-modal" class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <button class="btn" style="width:70px; height:40px; border:1px solid #555; font-size:12px;" onclick="closeModals()">ပြန်ထွက်</button>
+            <span id="grand-total" style="color:var(--gold); font-weight:bold; font-size:16px;">0 Ks</span>
+            <button class="btn" style="width:70px; height:40px; background:#cc0000; font-size:11px;" onclick="clearAllData()">ဖျက်မည်</button>
+        </div>
+        
+        <!-- SYNC BUTTONS INSIDE LEDGER -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
+            <button class="btn" style="background:#4a148c; font-size:11px; height:45px;" onclick="generateQR()">ပို့မည် (QR)</button>
+            <button class="btn" style="background:#00c853; font-size:11px; height:45px;" onclick="openScanner()">ပေါင်းမည် (SCAN)</button>
+        </div>
+
+        <div id="ledger-grid" class="ledger-grid"></div>
+    </div>
+
+    <div id="qr-gen-modal" class="modal" style="background:rgba(0,0,0,0.9); justify-content:center;">
+        <div id="qrcode-container" style="background:#fff; padding:15px; margin:auto; border-radius:10px;"></div>
+        <p style="text-align:center; color:var(--gold); margin:15px;">ဤ QR ကို Scan ဖတ်ခိုင်းပါ</p>
+        <button class="btn" style="height:50px; background:#444;" onclick="document.getElementById('qr-gen-modal').classList.remove('active')">ပိတ်မည်</button>
+    </div>
+
+    <div id="scanner-modal" class="modal">
+        <div id="qr-reader"></div>
+        <button class="btn" style="margin-top:20px; height:50px; background:#444;" onclick="stopScanner()">ပိတ်မည်</button>
+    </div>
+
+    <div id="voucher-modal" class="modal">
+        <button class="btn" style="margin-bottom:10px; height:45px;" onclick="closeModals()">ပြန်ထွက်</button>
+        
+        <!-- ပုံထဲကအတိုင်း ဘောင်ချာ ပုံစံ -->
+        <div id="receipt-capture">
+            <div class="receipt-header">LUCKY 2D</div>
+            <div class="receipt-date" id="receipt-date-time">Date: 4/2/2026 7:44</div>
+            <div class="receipt-divider"></div>
+            <div id="receipt-items-container">
+                <!-- Items will be inserted here by JavaScript -->
+            </div>
+            <div class="receipt-divider"></div>
+            <div class="receipt-total" id="receipt-total">TOTAL: 0 Ks</div>
+            <div class="receipt-footer" id="receipt-footer">ကျေးဇူးတင်ပါတယ်</div>
+        </div>
+        
+        <button class="btn action-btn" style="margin-top:10px; height:50px;" onclick="shareToApp()">SHARE TO APP</button>
+        <button class="btn png-download-btn" style="margin-top:10px; height:50px;" onclick="downloadAsPNG()">DOWNLOAD AS PNG</button>
+        <button class="btn rawbt-btn" style="margin-top:10px; height:50px;" onclick="printWithRawBT()">PRINT WITH RawBT</button>
+    </div>
+
+    <script>
+        let stage = "NO", data = { no: "", logic: [], price: "", results: [] };
+        let masterLedger = {}, currentSessions = [], currentTotal = 0, grandTotal = 0;
+        let html5QrCode;
+        
+        // Logic definitions
+        const SETS = { 
+            "ပါဝါ": ["05","50","16","61","27","72","38","83","49","94"], 
+            "နက္ခ": ["18","81","24","42","36","63","50","05","79","97"], 
+            "ညီကို": ["01","10","12","21","23","32","34","43","45","54","56","65","67","76","78","87","89","98","90","09"] 
+        };
+        
+        // Logic names in Myanmar for display
+        const LOGIC_NAMES = {
+            "R": "R",
+            "ခွေ": "ခွေ",
+            "ပွင့်": "ပွင့်",
+            "မြီး": "မြီး",
+            "ပါဝါ": "ပါဝါ",
+            "နက္ခ": "နက္ခ",
+            "ညီကို": "ညီကို",
+            "အပူး": "အပူး",
+            "ပတ်": "ပတ်",
+            "ဘရိတ်": "ဘရိတ်"
+        };
+
+        function loadPilotData() {
+            masterLedger = JSON.parse(localStorage.getItem('pilot_v4_ledger')) || {};
+            grandTotal = parseInt(localStorage.getItem('pilot_v4_grand')) || 0;
+            currentSessions = JSON.parse(localStorage.getItem('pilot_v4_active')) || [];
+            currentTotal = parseInt(localStorage.getItem('pilot_v4_total')) || 0;
+            render();
+        }
+
+        function saveData() {
+            localStorage.setItem('pilot_v4_ledger', JSON.stringify(masterLedger));
+            localStorage.setItem('pilot_v4_grand', grandTotal);
+            localStorage.setItem('pilot_v4_active', JSON.stringify(currentSessions));
+            localStorage.setItem('pilot_v4_total', currentTotal);
+        }
+
+        function press(key) {
+            if (!isNaN(key)) { 
+                // No limit on number input - ကန့်သတ်ချက်ဖယ်ရှား
+                if (stage === "NO" || stage === "LOGIC") {
+                    data.no += key;
+                    stage = "NO";
+                } else {
+                    data.price += key; 
+                }
+            }
+            else if (key === "⌫") { 
+                if (data.price) data.price = data.price.slice(0, -1); 
+                else if (data.no) data.no = data.no.slice(0, -1); 
+            }
+            else if (key === "AC") resetInput();
+            else if (["R", "ခွေ", "ပါဝါ", "နက္ခ", "အပူး", "ညီကို", "ပွင့်", "မြီး", "ပတ်", "ဘရိတ်"].includes(key)) {
+                if (!data.logic.includes(key)) data.logic.push(key); 
+                else data.logic = data.logic.filter(l => l !== key);
+                stage = "LOGIC"; 
+                recalc();
+            } else if (key === "Enter") {
+                if (data.price) {
+                    recalc();
+                    let singleP = parseInt(data.price);
+                    
+                    // If no logic selected and number is 2 digits, add as direct number
+                    if(data.results.length === 0 && data.no.length === 2) {
+                        data.results = [data.no];
+                    }
+                    
+                    // Add to master ledger
+                    data.results.forEach(n => { 
+                        masterLedger[n] = (masterLedger[n] || 0) + singleP; 
+                    });
+                    
+                    let entryT = singleP * data.results.length;
+                    
+                    // Create session entry
+                    currentSessions.unshift({ 
+                        label: data.logic.join("+") + (data.no?"("+data.no+")":""), 
+                        price: singleP, 
+                        total: entryT, 
+                        count: data.results.length,
+                        number: data.no || "",
+                        logic: [...data.logic]
+                    });
+                    
+                    currentTotal += entryT; 
+                    grandTotal += entryT;
+                    saveData(); 
+                    resetInput();
+                } else {
+                    // If no price entered, just move to price stage
+                    stage = "PRICE";
+                }
+            }
+            recalc(); 
+            render();
+        }
+
+        function recalc() {
+            let combined = []; 
+            let n = data.no.split('');
+            
+            if (n.length === 0) {
+                data.results = [];
+                return;
+            }
+            
+            data.logic.forEach(k => {
+                if (SETS[k]) {
+                    // Predefined sets
+                    combined = [...combined, ...SETS[k]];
+                }
+                else if (k === "အပူး") { 
+                    // Double each digit (e.g., 1 -> 11, 2 -> 22)
+                    n.forEach(d => combined.push(d+d)); 
+                }
+                else if (k === "ခွေ" || k === "R") { 
+                    // All permutations of 2 digits from the input digits
+                    for(let i=0; i<n.length; i++) {
+                        for(let j=0; j<n.length; j++) {
+                            if(i !== j) {
+                                combined.push(n[i] + n[j]);
+                            }
+                        }
+                    }
+                }
+                else if (k === "ပတ်") {
+                    // For each digit, generate numbers with that digit in first or second position
+                    n.forEach(num => { 
+                        for(let i=0; i<=9; i++) { 
+                            combined.push(num + i); 
+                            combined.push(i + num); 
+                        } 
+                    });
+                }
+                else if (k === "ဘရိတ်") {
+                    // All numbers where sum of digits mod 10 equals the input digit
+                    n.forEach(val => { 
+                        let b = parseInt(val); 
+                        for(let i=0; i<=99; i++) { 
+                            let s = i.toString().padStart(2,'0'); 
+                            if((parseInt(s[0]) + parseInt(s[1])) % 10 === b) {
+                                combined.push(s); 
+                            }
+                        } 
+                    });
+                }
+                else if (k === "ပွင့်") {
+                    // For each digit, generate numbers starting with that digit
+                    n.forEach(num => { 
+                        for(let i=0; i<=9; i++) {
+                            combined.push(num + i); 
+                        }
+                    });
+                }
+                else if (k === "မြီး") {
+                    // For each digit, generate numbers ending with that digit
+                    n.forEach(num => { 
+                        for(let i=0; i<=9; i++) {
+                            combined.push(i + num); 
+                        }
+                    });
+                }
+            });
+            
+            // If no logic selected but number exists and is 2 digits, use the number itself
+            if (data.logic.length === 0 && n.length === 2) {
+                data.results = [data.no];
+            } else if (data.logic.length > 0) {
+                // Remove duplicates and ensure all results are 2 digits
+                data.results = [...new Set(combined)].filter(x => x.length === 2);
+            } else {
+                data.results = [];
+            }
+        }
+
+        function render() {
+            document.getElementById('col-no').innerText = data.no;
+            document.getElementById('col-logic').innerText = data.logic.join("+");
+            document.getElementById('col-price').innerText = data.price;
+            document.getElementById('total-amount').innerText = currentTotal.toLocaleString() + " Ks";
+            document.getElementById('current-list').innerHTML = currentSessions.map(s => `
+                <div class="list-item">
+                    <div>${s.label}</div>
+                    <div>${s.count || 1}</div>
+                    <div style="color:var(--orange)">${s.price}</div>
+                    <div>${s.total}</div>
+                </div>
+            `).join("");
+        }
+
+        function showVoucher() {
+            document.getElementById('voucher-modal').classList.add('active');
+            
+            // Update date and time - ပုံထဲကအတိုင်း format
+            const now = new Date();
+            const day = now.getDate();
+            const month = now.getMonth() + 1;
+            const year = now.getFullYear();
+            const hours = now.getHours();
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            
+            // Format: 4/2/2026 7:44 (ပုံထဲကအတိုင်း)
+            document.getElementById('receipt-date-time').innerText = `Date: ${day}/${month}/${year} ${hours}:${minutes}`;
+            
+            // Clear previous items
+            const itemsContainer = document.getElementById('receipt-items-container');
+            itemsContainer.innerHTML = '';
+            
+            // Group items by number and logic combination
+            const groupedItems = {};
+            currentSessions.forEach(session => {
+                const key = session.number + "|" + (session.logic ? session.logic.join("+") : "");
+                if (!groupedItems[key]) {
+                    groupedItems[key] = {
+                        number: session.number,
+                        logics: session.logic || [],
+                        totalAmount: 0,
+                        count: 0
+                    };
+                }
+                groupedItems[key].totalAmount += session.total;
+                groupedItems[key].count += session.count || 1;
+            });
+            
+            // Display grouped items in the format: 99 (အံကျ) - 1000
+            Object.values(groupedItems).forEach(item => {
+                if (item.totalAmount === 0) return;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'receipt-item';
+                
+                // Create display text like in the image
+                let numberText = item.number || "";
+                let logicText = "";
+                
+                if (item.logics && item.logics.length > 0) {
+                    // Convert logic codes to Myanmar names
+                    logicText = item.logics.map(l => LOGIC_NAMES[l] || l).join("+");
+                }
+                
+                itemDiv.innerHTML = `
+                    <div class="item-number">${numberText}</div>
+                    <div class="item-logic">(${logicText})</div>
+                    <div class="item-amount">${item.totalAmount.toLocaleString()}</div>
+                `;
+                
+                itemsContainer.appendChild(itemDiv);
+            });
+            
+            // Update total at the bottom - ပုံထဲကအတိုင်း
+            document.getElementById('receipt-total').innerHTML = `TOTAL: <span style="font-size:20px;">${currentTotal.toLocaleString()} Ks</span>`;
+            
+            // Update footer
+            document.getElementById('receipt-footer').innerText = currentTotal > 0 ? 'ကျေးဇူးတင်ပါတယ်' : 'မှတ်တမ်းမရှိပါ';
+        }
+
+        function downloadAsPNG() {
+            const receiptElement = document.getElementById('receipt-capture');
+            
+            html2canvas(receiptElement, {
+                scale: 3, // High quality for printing
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                logging: false
+            }).then(canvas => {
+                const dataUrl = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `lucky2d_${new Date().toISOString().slice(0,10)}_${Date.now()}.png`;
+                link.href = dataUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                alert('ဘောင်ချာ PNG အဖြစ် ဒေါင်းလုဒ်ဆွဲပြီးပါပြီ!');
+            }).catch(error => {
+                console.error('Error generating PNG:', error);
+                alert('PNG ထုတ်ယူရာတွင် အမှားတစ်ခုဖြစ်နေပါသည်။');
+            });
+        }
+
+        function printWithRawBT() {
+            // Generate text exactly like in the image
+            const now = new Date();
+            const day = now.getDate();
+            const month = now.getMonth() + 1;
+            const year = now.getFullYear();
+            const hours = now.getHours();
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            
+            let receiptText = `LUCKY 2D\n\n`;
+            receiptText += `Date: ${day}/${month}/${year} ${hours}:${minutes}\n\n`;
+            
+            // Group items
+            const groupedItems = {};
+            currentSessions.forEach(session => {
+                const key = session.number + "|" + (session.logic ? session.logic.join("+") : "");
+                if (!groupedItems[key]) {
+                    groupedItems[key] = {
+                        number: session.number,
+                        logics: session.logic || [],
+                        totalAmount: 0,
+                        count: 0
+                    };
+                }
+                groupedItems[key].totalAmount += session.total;
+                groupedItems[key].count += session.count || 1;
+            });
+            
+            // Add items in format: 99 (အံကျ) - 1000
+            Object.values(groupedItems).forEach(item => {
+                if (item.totalAmount === 0) return;
+                
+                let numberText = item.number || "";
+                let logicText = "";
+                
+                if (item.logics && item.logics.length > 0) {
+                    logicText = item.logics.map(l => LOGIC_NAMES[l] || l).join("+");
+                }
+                
+                if (logicText) {
+                    receiptText += `${numberText} (${logicText}) - ${item.totalAmount.toLocaleString()}\n`;
+                } else {
+                    receiptText += `${numberText} - ${item.totalAmount.toLocaleString()}\n`;
+                }
+            });
+            
+            receiptText += `\nTOTAL: ${currentTotal.toLocaleString()} Ks\n\n`;
+            receiptText += `ကျေးဇူးတင်ပါတယ်\n`;
+            
+            // Create intent for RawBT
+            try {
+                // Encode the text properly for RawBT
+                const intentUrl = `intent:#Intent;action=ru.a402d.rawbt.action.PRINT;package=ru.a402d.rawbt;component=ru.a402d.rawbt/.PrintActivity;S.text=${encodeURIComponent(receiptText)};end`;
+                
+                window.location.href = intentUrl;
+                
+                // Fallback in case intent fails
+                setTimeout(() => {
+                    navigator.clipboard.writeText(receiptText).then(() => {
+                        console.log('Text copied to clipboard as fallback');
+                    });
+                }, 1000);
+                
+            } catch (e) {
+                // Fallback - copy to clipboard
+                navigator.clipboard.writeText(receiptText).then(() => {
+                    alert('ဘောင်ချာ စာသားကို clipboard သို့ ကူးထည့်ပြီးပါပြီ။ RawBT တွင် ကူးထည့်နိုင်ပါသည်။');
+                });
+            }
+        }
+
+        function shareToApp() {
+            // Generate text for sharing
+            const now = new Date();
+            const day = now.getDate();
+            const month = now.getMonth() + 1;
+            const year = now.getFullYear();
+            const hours = now.getHours();
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            
+            let receiptText = `LUCKY 2D\n\n`;
+            receiptText += `Date: ${day}/${month}/${year} ${hours}:${minutes}\n\n`;
+            
+            // Group items
+            const groupedItems = {};
+            currentSessions.forEach(session => {
+                const key = session.number + "|" + (session.logic ? session.logic.join("+") : "");
+                if (!groupedItems[key]) {
+                    groupedItems[key] = {
+                        number: session.number,
+                        logics: session.logic || [],
+                        totalAmount: 0,
+                        count: 0
+                    };
+                }
+                groupedItems[key].totalAmount += session.total;
+                groupedItems[key].count += session.count || 1;
+            });
+            
+            // Add items
+            Object.values(groupedItems).forEach(item => {
+                if (item.totalAmount === 0) return;
+                
+                let numberText = item.number || "";
+                let logicText = "";
+                
+                if (item.logics && item.logics.length > 0) {
+                    logicText = item.logics.map(l => LOGIC_NAMES[l] || l).join("+");
+                }
+                
+                if (logicText) {
+                    receiptText += `${numberText} (${logicText}) - ${item.totalAmount.toLocaleString()}\n`;
+                } else {
+                    receiptText += `${numberText} - ${item.totalAmount.toLocaleString()}\n`;
+                }
+            });
+            
+            receiptText += `\nTOTAL: ${currentTotal.toLocaleString()} Ks\n\n`;
+            receiptText += `ကျေးဇူးတင်ပါတယ်\n`;
+            
+            // Use Web Share API
+            if (navigator.share) {
+                navigator.share({
+                    title: 'LUCKY 2D Receipt',
+                    text: receiptText
+                }).catch(err => {
+                    // Fallback to clipboard
+                    navigator.clipboard.writeText(receiptText).then(() => {
+                        alert('ဘောင်ချာ စာသားကို clipboard သို့ ကူးထည့်ပြီးပါပြီ။');
+                    });
+                });
+            } else {
+                // Fallback to clipboard
+                navigator.clipboard.writeText(receiptText).then(() => {
+                    alert('ဘောင်ချာ စာသားကို clipboard သို့ ကူးထည့်ပြီးပါပြီ။');
+                });
+            }
+        }
+
+        function generateQR() {
+            document.getElementById('qr-gen-modal').classList.add('active');
+            const container = document.getElementById('qrcode-container'); 
+            container.innerHTML = "";
+            let compact = {}; 
+            for(let k in masterLedger) if(masterLedger[k]>0) compact[k] = masterLedger[k];
+            QRCode.toCanvas(JSON.stringify({t:"2D_SYNC", d:compact}), { width: 250 }, (err, cvs) => { 
+                if (err) console.error(err);
+                container.appendChild(cvs); 
+            });
+        }
+
+        function openScanner() {
+            document.getElementById('scanner-modal').classList.add('active');
+            html5QrCode = new Html5Qrcode("qr-reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+                try {
+                    let imp = JSON.parse(txt);
+                    if(imp.t === "2D_SYNC") {
+                        for(let n in imp.d) { 
+                            masterLedger[n] = (masterLedger[n] || 0) + imp.d[n]; 
+                            grandTotal += imp.d[n]; 
+                        }
+                        saveData(); 
+                        stopScanner(); 
+                        showLedger(); 
+                        alert("စာရင်းများ အောင်မြင်စွာ ပေါင်းလိုက်ပါပြီ!");
+                    }
+                } catch(e) { 
+                    alert("QR Code မှားယွင်းနေပါသည်"); 
+                }
+            });
+        }
+
+        function stopScanner() { 
+            if(html5QrCode) html5QrCode.stop(); 
+            document.getElementById('scanner-modal').classList.remove('active'); 
+        }
+        
+        function showLedger() {
+            document.getElementById('ledger-modal').classList.add('active');
+            let grid = document.getElementById('ledger-grid'); 
+            grid.innerHTML = "";
+            document.getElementById('grand-total').innerText = grandTotal.toLocaleString() + " Ks";
+            for (let i=0; i<=99; i++) {
+                let n = i.toString().padStart(2, '0'), v = masterLedger[n] || "";
+                grid.innerHTML += `<div class="ledger-item ${v ? 'highlight' : ''}">${n}<br>${v}</div>`;
+            }
+        }
+        
+        function newVoucher() { 
+            if(confirm("လက်ရှိဘောင်ချာအသစ်စမည်လား?")) { 
+                currentSessions = []; 
+                currentTotal = 0; 
+                saveData(); 
+                render(); 
+                closeModals(); 
+            } 
+        }
+        
+        function clearAllData() { 
+            if(confirm("ဒေတာအားလုံးဖျက်မည်လား?")) { 
+                localStorage.clear(); 
+                location.reload(); 
+            } 
+        }
+        
+        function resetInput() { 
+            data = { no: "", logic: [], price: "", results: [] }; 
+            stage = "NO"; 
+            render(); 
+        }
+        
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(m => m.classList.remove('active')); 
+        }
+    </script>
+</body>
+</html>
